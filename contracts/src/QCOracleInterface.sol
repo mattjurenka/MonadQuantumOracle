@@ -14,11 +14,12 @@ struct JobStatus {
     bytes result;
 }
 
-contract QCORacleInterface {
+contract QCOracleInterface {
     mapping(address => QCProvider) public providers;
     mapping(bytes32 => JobStatus) public jobResults;
 
-    event JobRequested(address, uint256, bytes);
+    event JobRequested(bytes32 jobHash, address provider, uint256 backendId, bytes data);
+    event JobCompleted(bytes32 jobHash, address provider, uint256 backendId, bytes response);
 
     function updateProviderInfo(uint256 fee, uint256[] calldata backends) public {
         // Logic to update the provider's fee
@@ -27,17 +28,15 @@ contract QCORacleInterface {
         providers[msg.sender].backends = backends;
     }
 
-    function requestJob(address provider, uint256 backendId, bytes calldata jobData) public payable returns(bytes32) {
+    function requestJob(bytes32 jobHash, address provider, uint256 backendId, bytes calldata jobData) public payable returns(bytes32) {
         // Logic to request a job from the specified provider and backend
         require(providers[provider].providerAddress != address(0), "Provider not found");
         require(providers[provider].fee <= msg.value, "Insufficient payment");
         // Further logic to handle the job request
+        require(jobResults[jobHash].providerAddress == address(0), "Job hash already exists");
 
         (bool success, ) = provider.call{value: msg.value}(""); // Transfer payment to the provider
         require(success, "Payment transfer failed");
-
-        emit JobRequested(provider, backendId, jobData);
-        bytes32 jobHash = keccak256(abi.encodePacked(provider, backendId, jobData, block.timestamp));
 
         jobResults[jobHash] = JobStatus({
             isCompleted: false,
@@ -45,6 +44,7 @@ contract QCORacleInterface {
             backendId: backendId,
             result: new bytes(0)
         });
+        emit JobRequested(jobHash, provider, backendId, jobData);
 
         return jobHash;
     }
@@ -56,6 +56,7 @@ contract QCORacleInterface {
 
         jobResults[jobHash].isCompleted = true;
         jobResults[jobHash].result = result;
-    }
 
+        emit JobCompleted(jobHash, msg.sender, jobResults[jobHash].backendId, result);
+    }
 }
