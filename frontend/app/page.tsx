@@ -1,6 +1,4 @@
 "use client"
-import { Connection } from "@/lib/components/Connection";
-import { WalletOptions } from "@/lib/components/WalletOptions";
 import { useConnection, useWriteContract, useWatchContractEvent, useWaitForTransactionReceipt } from "wagmi";
 import abi from "@/lib/QCOracleInterface.abi.json"
 import { toHex, bytesToHex, hexToString, encodeFunctionData, webSocket, createPublicClient } from "viem"
@@ -95,75 +93,4 @@ function HomePageTabs() {
       <button className={`${tab === 'custom' ? 'bg-gray-900' : 'bg-gray-700'} p-4 cursor-pointer`} onClick={() => setTab("custom")}>Custom Circuit</button>
     </div>*/}
   </div>
-}
-
-//export default function Home() {
-//  const { isConnected } = useConnection()
-//
-//  return (
-//    <div>
-//      <ConnectWallet />
-//      {isConnected && <App />}
-//    </div>
-//  );
-//}
-
-function ConnectWallet() {
-  const { isConnected } = useConnection()
-  if (isConnected) return <Connection />
-  return <WalletOptions />
-}
-
-function App() {
-  const { data: hash, writeContract } = useWriteContract()
-
-  const code = "OPENQASM 2.0;\
-include \"qelib1.inc\";\
-\
-qreg q[4];\
-creg c[4];\
-h q[0];\
-h q[1];\
-z q[1];\
-cx q[0], q[1];\
-ccx q[0], q[1], q[2];\
-h q[2];\
-cx q[2], q[3];\
-measure q[3] -> c[3];"
-
-
-  return <div>
-    <button onClick={async () => {
-
-      writeContract({
-        abi,
-        address: "0x5EDE0c721141599408B945C90d3470977F60B3b9",
-        functionName: "requestJob",
-        args: [randomHexValue, "0x72EdaCC7A4092Ed1AA0c1d1f9E7CE2b222B5075A", BigInt(0), toHex(code)],
-      })
-
-    }}>
-      Send Transaction
-    </button>
-    {latestJobHash && <JobStatus hash={latestJobHash} />}
-  </div>
-}
-
-function JobStatus({ hash }: { hash: `0x${string}`}) {
-  useWatchContractEvent({
-    address: "0x5EDE0c721141599408B945C90d3470977F60B3b9",
-    abi,
-    eventName: "JobCompleted",
-    onLogs: (logs) => {
-      if ((logs[0] as any)?.args?.jobHash === hash) {
-        const args = (logs[0] as any).args
-        const hex_value = hexToString(args.response)
-        const results = JSON.parse(hex_value)
-      }
-    },
-  })
-
-  return <p>
-    Watching for job completion for job ID: {hash}
-  </p>
 }
